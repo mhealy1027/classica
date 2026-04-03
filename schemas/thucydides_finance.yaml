@@ -1,0 +1,74 @@
+name: Thucydides Financial & Military Data
+description: >
+  Extracts all instances of financial and military
+  activity from Thucydides' History. Includes troop
+  counts, ship numbers, tribute payments, wages,
+  bribes, fines, and other monetary references.
+
+fields:
+  - name: book
+    type: integer
+    description: Book number (1-8)
+
+  - name: chapter
+    type: integer
+    description: Chapter number within the book
+
+  - name: year_bce
+    type: integer
+    description: >
+      Approximate year BCE. Thucydides organizes by
+      war year. Use conventional dating: Book 1 events
+      pre-431, Book 2 starts at 431, etc.
+
+  - name: actor
+    type: string
+    description: >
+      The state or entity involved. Usually 'Athens',
+      'Sparta', or a specific ally/city.
+
+  - name: purpose
+    type: string
+    description: >
+      Brief description of the activity, e.g.
+      'Corcyra expedition', 'Potidaea siege',
+      'tribute payment'.
+
+  - name: amount
+    type: number
+    description: The numeric value mentioned.
+
+  - name: unit
+    type: string
+    enum: [talents, drachmas, obols, triremes, hoplites,
+           cavalry, archers, light_armed, sailors,
+           mercenaries, ships, men, other]
+    description: The unit of measurement.
+
+  - name: direction
+    type: string
+    enum: [revenue, expenditure, asset, loss, transfer]
+    description: >
+      Whether this represents income, spending, an
+      asset count, a loss, or a transfer between actors.
+
+  - name: confidence
+    type: string
+    enum: [high, medium, low]
+    description: >
+      How explicitly the text states this data point.
+      'high' = exact number given directly.
+      'medium' = number implied or requires interpretation.
+      'low' = inferred from context or ambiguous.
+
+  - name: greek_reference
+    type: string
+    description: >
+      Key Greek term(s) from the passage that anchor
+      this data point, e.g. 'phoros', 'misthos'.
+
+  - name: notes
+    type: string
+    description: >
+      Any context about why the extraction was made
+      or scholarly debates about this data point.
