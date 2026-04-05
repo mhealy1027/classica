@@ -131,6 +131,33 @@ def cmd_list(args: argparse.Namespace) -> None:
         print(f"  {f.name} ({size_kb:.0f} KB)")
 
 
+def cmd_agent(args: argparse.Namespace) -> None:
+    """Handle the 'agent' subcommand."""
+    from classica.agent import run_agent
+
+    if args.interactive:
+        print("Classica Agent — Interactive Mode")
+        print("Type your research question and press Enter. Ctrl+C to exit.")
+        print("Agent state is shared across questions in this session.\n")
+        agent_state = None
+        messages = None
+        try:
+            while True:
+                try:
+                    question = input("Question: ").strip()
+                except EOFError:
+                    break
+                if not question:
+                    continue
+                print()
+                agent_state, messages = run_agent(question, agent_state, messages)
+                print()
+        except KeyboardInterrupt:
+            print("\nExiting interactive mode.")
+    else:
+        run_agent(args.question)
+
+
 def main() -> None:
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -163,6 +190,16 @@ def main() -> None:
     # list
     p_list = subparsers.add_parser("list", help="List cached texts")
     p_list.set_defaults(func=cmd_list)
+
+    # agent
+    p_agent = subparsers.add_parser("agent", help="Run the AI research agent")
+    p_agent_group = p_agent.add_mutually_exclusive_group(required=True)
+    p_agent_group.add_argument("--question", help="Research question to answer")
+    p_agent_group.add_argument(
+        "--interactive", action="store_true",
+        help="Interactive mode: run questions sequentially, sharing agent state",
+    )
+    p_agent.set_defaults(func=cmd_agent)
 
     args = parser.parse_args()
     if not args.command:
