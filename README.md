@@ -1,10 +1,10 @@
-# Classica
+# Saphes
 
-**Ancient Text Structured Extractor** — a configurable AI pipeline that transforms classical texts into analyst-ready structured data.
+**Ancient Text Structured Extractor** - a configurable AI pipeline that transforms classical texts into analyst-ready structured data.
 
 ## Overview
 
-Classica is a Python-based CLI tool that extracts structured, tabular data from ancient texts hosted in the [Perseus Digital Library](http://www.perseus.tufts.edu/). Given a text and a user-defined extraction schema, it uses the Claude API to systematically parse each chapter, identify relevant data points, and output analyst-ready CSV files.
+Saphes is a Python-based CLI tool that extracts structured, tabular data from ancient texts hosted in the [Perseus Digital Library](http://www.perseus.tufts.edu/). Given a text and a user-defined extraction schema, it uses the Claude API to systematically parse each chapter, identify relevant data points, and output analyst-ready CSV files.
 
 ## Quick Start
 
