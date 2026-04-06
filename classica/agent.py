@@ -18,9 +18,11 @@ from typing import Optional
 
 import anthropic
 
-from classica.config import OUTPUT_DIR, CLAUDE_SONNET_MODEL
+from classica.config import (
+    OUTPUT_DIR, CLAUDE_MODEL, CLAUDE_SONNET_MODEL, cost_tracker,
+)
 from classica.tools.ingest import ingest_text
-from classica.tools.extract import extract_passage
+from classica.tools.extract import extract_passage, extract_passages_batched
 from classica.tools.search import search_passages as _search_passages
 from classica.tools.cross_reference import cross_reference as _cross_reference
 from classica.tools.export import export_data as _export_data
@@ -30,7 +32,9 @@ from classica.tools.calculate import calculate_expenditure as _calc_exp
 from classica.tools.calculate import build_balance_sheet as _build_bs
 from classica.schemas.base import load_schema
 
-AGENT_MODEL = CLAUDE_SONNET_MODEL
+# Default to Haiku for planning/execution; Sonnet only for reflection
+AGENT_MODEL = CLAUDE_MODEL
+REFLECTION_MODEL = CLAUDE_SONNET_MODEL
 MAX_ITERATIONS = 20
 CACHED_CSV = OUTPUT_DIR / "full_thucydides.csv"
 
@@ -438,7 +442,6 @@ def _execute_tool(name: str, inputs: dict, state: dict, client: anthropic.Anthro
 
     if name == "extract_passages":
         from classica.schemas.base import load_schema
-        from classica.tools.extract import extract_passage
 
         if not state.get("passages"):
             data = ingest_text(author=inputs["author"])
@@ -450,13 +453,7 @@ def _execute_tool(name: str, inputs: dict, state: dict, client: anthropic.Anthro
             book_nums = [int(b) for b in str(inputs["books"]).split(",")]
             passages = [p for p in passages if p["book"] in book_nums]
 
-        all_ext = []
-        for p in passages:
-            try:
-                results = extract_passage(passage=p, schema=schema)
-                all_ext.extend(results)
-            except Exception:
-                pass
+        all_ext = extract_passages_batched(passages, schema)
 
         state["extractions"] = all_ext
         state["filtered_extractions"] = []
@@ -668,12 +665,13 @@ def _execute_tool(name: str, inputs: dict, state: dict, client: anthropic.Anthro
                 f"{xref['running_totals']}"
             )
             resp = c.messages.create(
-                model=AGENT_MODEL,
+                model=REFLECTION_MODEL,
                 max_tokens=4096,
                 temperature=0,
                 system=sys_p,
                 messages=[{"role": "user", "content": msg}],
             )
+            cost_tracker.record(REFLECTION_MODEL, resp.usage.input_tokens, resp.usage.output_tokens)
             raw = resp.content[0].text.strip()
             if raw.startswith("```"):
                 raw = "\n".join(raw.split("\n")[1:])
@@ -735,6 +733,7 @@ def run_agent(
             "content": f"Research question: {question}\n\nCreate a JSON execution plan.",
         }],
     )
+    cost_tracker.record(AGENT_MODEL, plan_resp.usage.input_tokens, plan_resp.usage.output_tokens)
     plan_text = plan_resp.content[0].text
     plan = _parse_plan(plan_text)
 
@@ -767,6 +766,7 @@ def run_agent(
             tools=TOOL_DEFINITIONS,
             messages=messages,
         )
+        cost_tracker.record(AGENT_MODEL, response.usage.input_tokens, response.usage.output_tokens)
 
         messages.append({"role": "assistant", "content": response.content})
 
@@ -818,7 +818,7 @@ def run_agent(
             for sc, bs in agent_state["balance_sheets"].items()
         }
         reflect_resp = client.messages.create(
-            model=AGENT_MODEL,
+            model=REFLECTION_MODEL,
             max_tokens=4096,
             system=_REFLECTION_PROMPT,
             messages=[{
@@ -835,6 +835,7 @@ def run_agent(
                 ),
             }],
         )
+        cost_tracker.record(REFLECTION_MODEL, reflect_resp.usage.input_tokens, reflect_resp.usage.output_tokens)
         final_text = reflect_resp.content[0].text
         agent_state["memo"] = {"summary": final_text}
 
@@ -848,6 +849,8 @@ def run_agent(
         print("\n[DONE] Exported files:")
         for p in agent_state["exports"]:
             print(f"  {p}")
+
+    cost_tracker.print_summary()
 
     return agent_state, messages
 

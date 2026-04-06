@@ -5,7 +5,15 @@ import json
 import sys
 from pathlib import Path
 
-from classica.config import TEXTS_DIR, OUTPUT_DIR
+from classica.config import TEXTS_DIR, OUTPUT_DIR, CLAUDE_MODEL, CLAUDE_SONNET_MODEL, cost_tracker
+
+
+def _resolve_model(args: argparse.Namespace) -> str:
+    """Resolve --model shorthand to full model ID."""
+    name = getattr(args, "model", None)
+    if name == "sonnet":
+        return CLAUDE_SONNET_MODEL
+    return CLAUDE_MODEL
 
 
 def cmd_ingest(args: argparse.Namespace) -> None:
@@ -25,15 +33,18 @@ def cmd_ingest(args: argparse.Namespace) -> None:
 def cmd_extract(args: argparse.Namespace) -> None:
     """Handle the 'extract' subcommand."""
     from classica.tools.ingest import ingest_text
-    from classica.tools.extract import extract_passage
+    from classica.tools.extract import extract_passages_batched
     from classica.tools.export import export_data
     from classica.tools.cross_reference import cross_reference
     from classica.tools.summarize import summarize_findings
     from classica.schemas.base import load_schema
 
+    model = _resolve_model(args)
+
     # Load schema
     schema = load_schema(args.schema)
     print(f"Schema: {schema['name']}")
+    print(f"Model: {model}")
 
     # Ingest text
     data = ingest_text(author=args.author)
@@ -45,20 +56,11 @@ def cmd_extract(args: argparse.Namespace) -> None:
         passages = [p for p in passages if p["book"] in book_nums]
         print(f"Filtering to books: {book_nums} ({len(passages)} chapters)")
 
-    # Extract from each passage
-    all_extractions = []
-    for i, passage in enumerate(passages):
-        label = f"Book {passage['book']}, Ch {passage['chapter']}"
-        print(f"  [{i+1}/{len(passages)}] Extracting from {label}...")
-        try:
-            results = extract_passage(passage=passage, schema=schema)
-            if results:
-                all_extractions.extend(results)
-                print(f"    -> {len(results)} extraction(s)")
-            else:
-                print(f"    -> no financial/military data")
-        except Exception as e:
-            print(f"    -> ERROR: {e}")
+    # Batched extraction with optional keyword pre-filter
+    skip_filter = getattr(args, "skip_filter", False)
+    all_extractions = extract_passages_batched(
+        passages, schema, model=model, skip_filter=skip_filter,
+    )
 
     print(f"\nTotal extractions: {len(all_extractions)}")
 
@@ -91,6 +93,8 @@ def cmd_extract(args: argparse.Namespace) -> None:
         print(f"\nUncertainties:")
         for u in summary["uncertainties"]:
             print(f"  - {u}")
+
+    cost_tracker.print_summary()
 
 
 def cmd_search(args: argparse.Namespace) -> None:
@@ -133,7 +137,14 @@ def cmd_list(args: argparse.Namespace) -> None:
 
 def cmd_agent(args: argparse.Namespace) -> None:
     """Handle the 'agent' subcommand."""
-    from classica.agent import run_agent
+    from classica.agent import run_agent, AGENT_MODEL, REFLECTION_MODEL
+    import classica.agent as agent_module
+
+    # Apply model override if specified
+    model = _resolve_model(args)
+    if model != CLAUDE_MODEL:
+        agent_module.AGENT_MODEL = model
+        agent_module.REFLECTION_MODEL = model
 
     if args.interactive:
         print("Classica Agent — Interactive Mode")
@@ -178,6 +189,10 @@ def main() -> None:
     p_extract.add_argument("--schema", required=True, help="Path to YAML schema file")
     p_extract.add_argument("--books", default=None, help="Comma-separated book numbers (e.g. '2' or '1,2,3')")
     p_extract.add_argument("--output", default=None, help="Output file path")
+    p_extract.add_argument("--model", choices=["haiku", "sonnet"], default="haiku",
+                           help="Model to use: haiku (default, cheap) or sonnet (higher accuracy)")
+    p_extract.add_argument("--skip-filter", action="store_true",
+                           help="Skip keyword pre-filter and extract from all chapters")
     p_extract.set_defaults(func=cmd_extract)
 
     # search
@@ -199,6 +214,8 @@ def main() -> None:
         "--interactive", action="store_true",
         help="Interactive mode: run questions sequentially, sharing agent state",
     )
+    p_agent.add_argument("--model", choices=["haiku", "sonnet"], default="haiku",
+                         help="Model for planning/execution: haiku (default) or sonnet")
     p_agent.set_defaults(func=cmd_agent)
 
     args = parser.parse_args()

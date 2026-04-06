@@ -21,6 +21,7 @@ FEW_SHOT_EXAMPLES = [
     },
     {
         "label": "Dense extraction (Book 2, Ch 13) — Pericles' accounting of Athenian resources",
+        "note": "This passage yielded 9 total extractions covering all financial and military figures listed by Pericles. Extract every distinct data point, not just the first few.",
         "output": [
             {
                 "book": 2,
@@ -40,100 +41,9 @@ FEW_SHOT_EXAMPLES = [
                 "chapter": 13,
                 "year_bce": 431,
                 "actor": "Athens",
-                "purpose": "Coined silver on Acropolis",
-                "amount": 6000,
-                "unit": "talents",
-                "direction": "asset",
-                "confidence": "high",
-                "greek_reference": "",
-                "notes": "",
-            },
-            {
-                "book": 2,
-                "chapter": 13,
-                "year_bce": 431,
-                "actor": "Athens",
-                "purpose": "Uncoined gold and silver offerings",
-                "amount": 500,
-                "unit": "talents",
-                "direction": "asset",
-                "confidence": "high",
-                "greek_reference": "",
-                "notes": "",
-            },
-            {
-                "book": 2,
-                "chapter": 13,
-                "year_bce": 431,
-                "actor": "Athens",
-                "purpose": "Gold on Athena Parthenos statue",
-                "amount": 40,
-                "unit": "talents",
-                "direction": "asset",
-                "confidence": "high",
-                "greek_reference": "",
-                "notes": "Pericles suggests melting if necessary.",
-            },
-            {
-                "book": 2,
-                "chapter": 13,
-                "year_bce": 431,
-                "actor": "Athens",
                 "purpose": "Field hoplites available",
                 "amount": 13000,
                 "unit": "hoplites",
-                "direction": "asset",
-                "confidence": "high",
-                "greek_reference": "",
-                "notes": "",
-            },
-            {
-                "book": 2,
-                "chapter": 13,
-                "year_bce": 431,
-                "actor": "Athens",
-                "purpose": "Garrison troops",
-                "amount": 16000,
-                "unit": "hoplites",
-                "direction": "asset",
-                "confidence": "medium",
-                "greek_reference": "",
-                "notes": "Includes oldest/youngest + metics.",
-            },
-            {
-                "book": 2,
-                "chapter": 13,
-                "year_bce": 431,
-                "actor": "Athens",
-                "purpose": "Cavalry including mounted archers",
-                "amount": 1200,
-                "unit": "cavalry",
-                "direction": "asset",
-                "confidence": "high",
-                "greek_reference": "",
-                "notes": "",
-            },
-            {
-                "book": 2,
-                "chapter": 13,
-                "year_bce": 431,
-                "actor": "Athens",
-                "purpose": "Archers",
-                "amount": 1600,
-                "unit": "archers",
-                "direction": "asset",
-                "confidence": "high",
-                "greek_reference": "",
-                "notes": "",
-            },
-            {
-                "book": 2,
-                "chapter": 13,
-                "year_bce": 431,
-                "actor": "Athens",
-                "purpose": "Seaworthy triremes",
-                "amount": 300,
-                "unit": "triremes",
                 "direction": "asset",
                 "confidence": "high",
                 "greek_reference": "",
@@ -143,6 +53,7 @@ FEW_SHOT_EXAMPLES = [
     },
     {
         "label": "Wage data (Book 3, Ch 17) — Fleet costs",
+        "note": "This passage yielded 3 total extractions including ship counts and per-day wage rates for hoplites and sailors. Extract all distinct figures.",
         "output": [
             {
                 "book": 3,
@@ -156,32 +67,6 @@ FEW_SHOT_EXAMPLES = [
                 "confidence": "high",
                 "greek_reference": "",
                 "notes": "",
-            },
-            {
-                "book": 3,
-                "chapter": 17,
-                "year_bce": 428,
-                "actor": "Athens",
-                "purpose": "Hoplites at Potidaea wages",
-                "amount": 2,
-                "unit": "drachmas",
-                "direction": "expenditure",
-                "confidence": "high",
-                "greek_reference": "misthos",
-                "notes": "Per-day rate for each hoplite.",
-            },
-            {
-                "book": 3,
-                "chapter": 17,
-                "year_bce": 428,
-                "actor": "Athens",
-                "purpose": "Sailor wages",
-                "amount": 1,
-                "unit": "drachmas",
-                "direction": "expenditure",
-                "confidence": "high",
-                "greek_reference": "misthos",
-                "notes": "Per-day rate for each sailor.",
             },
         ],
     },
@@ -201,7 +86,11 @@ def build_system_prompt(schema_text: str) -> str:
 
     examples_text = ""
     for ex in FEW_SHOT_EXAMPLES:
-        examples_text += f"\n### {ex['label']}\nOutput:\n```json\n"
+        examples_text += f"\n### {ex['label']}\n"
+        if ex.get("note"):
+            examples_text += f"*{ex['note']}*\nOutput (representative subset):\n```json\n"
+        else:
+            examples_text += "Output:\n```json\n"
         examples_text += json.dumps(ex["output"], indent=2)
         examples_text += "\n```\n"
 
